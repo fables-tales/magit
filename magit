@@ -1,0 +1,95 @@
+#!/usr/bin/env python
+import sys
+import os
+import subprocess
+import httplib as http
+import urllib
+
+
+COLOR_GREEN = "32"
+COLOR_RED   = "31"
+COLOR_RESET = "0"
+
+def set_print_color(color):
+    print "\x1b[" + color+  "m"
+
+def in_magit_dir():
+    return os.path.exists(".magit")
+
+def run(process, cwd="."):
+    p = subprocess.Popen(process, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, cwd=cwd)
+    p.wait()
+    return p.stdout.read()
+
+def touch(file):
+    if not os.path.exists(file): 
+        open(file, 'w').close() 
+
+def init():
+    if len(sys.argv) != 3:
+        print "Usage is `magit init [directory]`"
+        sys.exit(1)
+    magit_dir = sys.argv[2]
+    if os.path.exists(magit_dir):
+        print "the directory", magit_dir,"already exists"
+    else:
+        os.mkdir(magit_dir)
+        os.mkdir(magit_dir + "/cards")
+        os.mkdir(magit_dir + "/decks")
+        touch(magit_dir + "/cards/.gitkeep")
+        touch(magit_dir + "/decks/.gitkeep")
+        touch(magit_dir + ".magit")
+        os.system("cd " + magit_dir + " && git init")
+        os.system("cd " + magit_dir + " && git add .")
+        os.system("cd " + magit_dir + " && git commit -a -m 'Initialised the magit deck system'")
+        print "Magit initialised"
+        
+def gatherer_page(card_name):
+    conn = http.HTTPConnection("gatherer.wizards.com")
+    conn.request("GET","/Pages/Card/Details.aspx?name=" + urllib.quote(card_name))
+    resp = conn.getresponse()
+    if resp.status != 200:
+        return None
+    else:
+        return resp.read()
+
+def add_card(card_name):
+    page_text = gatherer_page(card_name) 
+    if page_text == None:
+        print "The card you asked for does not exist (please make sure you typed the name exactly including capitals)"
+        sys.exit(1)
+    else:
+        print page_text 
+        
+
+def cmd_add_card():
+    if len(sys.argv) != 4:
+        print "Usage is `magit add card [card name]`"
+    else:
+        add_card(sys.argv[3])
+
+def add():
+    if not in_magit_dir():
+        print "This command required you to be in a magit directory"
+        sys.exit(1)
+    if len(sys.argv) < 3:
+        print "Usage is one of:"
+        print "`magit add card [card name]`"
+    else:
+        if sys.argv[2] == "card":
+            cmd_add_card()
+
+actions = {"init": init, "add": add} 
+
+def main():
+    if len(sys.argv) == 1:
+        print "usage"
+    else:
+        action = sys.argv[1]
+        actions[action]()
+        
+        
+    
+
+if __name__ == "__main__":
+    main()
